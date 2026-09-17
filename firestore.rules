@@ -21,11 +21,41 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
+    match /attendance_records/{recordId} {
+      allow read: if true;
+      allow create, update: if isValidId(recordId);
+      allow delete: if isSignedIn();
+    }
+
+    // Leave requests & permissions
+    match /leave_requests/{leaveId} {
+      allow read: if true;
+      allow create, update: if isValidId(leaveId);
+      allow delete: if isSignedIn();
+    }
+
     // GTK Services & Permissions
     match /gtk_services/{serviceId} {
       allow read: if true;
       allow create, update: if isValidId(serviceId);
       allow delete: if isSignedIn();
+    }
+
+    // System state & full sync
+    match /system_state/{stateId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // ASN tables & Apel documentation
+    match /asn_attendance_tables/{dateId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /apel_documentations/{dateId} {
+      allow read: if true;
+      allow write: if true;
     }
 
     // School config
