@@ -1,0 +1,11 @@
+{
+  "name": "Remix Remix Presensi Sekolah Digital",
+  "description": "Sistem informasi presensi digital sekolah dan portal layanan/perizinan resmi GTK dengan verifikasi ganda Kepala Sekolah dan Admin, sinkronisasi Google Workspace \u0026 Firebase.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

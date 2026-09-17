@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "attendanceRecord": {
+      "title": "Attendance Record",
+      "description": "Daily school attendance record for students and teachers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "personId": { "type": "string", "maxLength": 128 },
+        "personType": { "type": "string", "enum": ["student", "teacher"] },
+        "personName": { "type": "string", "maxLength": 200 },
+        "identifier": { "type": "string", "maxLength": 64 },
+        "classOrSubject": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "time": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "enum": ["masuk", "pulang"] },
+        "status": { "type": "string", "enum": ["hadir", "terlambat", "sakit", "izin", "alpa"] },
+        "method": { "type": "string", "enum": ["qrcode", "selfie_gps", "manual", "rfid"] },
+        "note": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "personId", "personType", "personName", "identifier", "date", "time", "type", "status", "method"]
+    },
+    "gtkService": {
+      "title": "GTK Service & Permission Request",
+      "description": "Service and leave permission request for teachers with dual approval by Principal and Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "teacherId": { "type": "string", "maxLength": 128 },
+        "teacherName": { "type": "string", "maxLength": 200 },
+        "nip": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "enum": ["izin_cuti", "surat_tugas", "rekomendasi_akademik", "tukar_jadwal", "keterangan_aktif"] },
+        "title": { "type": "string", "maxLength": 250 },
+        "purpose": { "type": "string", "maxLength": 1000 },
+        "startDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "endDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "status": { "type": "string", "enum": ["pending", "approved_by_kepsek", "approved_by_admin", "approved", "rejected"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "teacherId", "teacherName", "nip", "category", "title", "purpose", "startDate", "endDate", "status"]
+    },
+    "schoolConfig": {
+      "title": "School Configuration",
+      "description": "General settings and metadata for the school presensi system",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "npsn": { "type": "string", "maxLength": 30 },
+        "logoUrl": { "type": "string", "maxLength": 2048 },
+        "address": { "type": "string", "maxLength": 500 },
+        "academicYear": { "type": "string", "maxLength": 50 },
+        "semester": { "type": "string", "maxLength": 50 },
+        "principalName": { "type": "string", "maxLength": 150 },
+        "principalNip": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["schoolName", "npsn"]
+    },
+    "appBackup": {
+      "title": "Application State Backup",
+      "description": "Full database backup snapshot containing attendance, students, teachers, classes, and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "createdDate": { "type": "string", "maxLength": 30 },
+        "source": { "type": "string", "maxLength": 100 },
+        "totalRecords": { "type": "number" },
+        "totalStudents": { "type": "number" },
+        "totalTeachers": { "type": "number" },
+        "backupData": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "createdDate", "totalRecords"]
+    }
+  },
+  "firestore": {
+    "/attendance/{recordId}": {
+      "schema": "attendanceRecord",
+      "description": "Daily attendance logs"
+    },
+    "/gtk_services/{serviceId}": {
+      "schema": "gtkService",
+      "description": "GTK permission and official service requests"
+    },
+    "/config/{configId}": {
+      "schema": "schoolConfig",
+      "description": "School configuration doc"
+    },
+    "/backups/{backupId}": {
+      "schema": "appBackup",
+      "description": "Full application state snapshots"
+    }
+  }
+}

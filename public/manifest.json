@@ -1,0 +1,76 @@
+{
+  "id": "/",
+  "short_name": "Presensi SMP",
+  "name": "Sistem Presensi Digital SMPN 4 Satu Atap Taliabu Barat",
+  "description": "Aplikasi Presensi Digital Terpadu Biometrik Wajah, Geofencing GPS, QR Code dan Integrasi BKD Pulau Taliabu",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
+  "background_color": "#F8FAFC",
+  "theme_color": "#4338CA",
+  "prefer_related_applications": false,
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Scan QR Presensi Siswa & Guru",
+      "short_name": "Scan QR",
+      "description": "Pindai Kartu QR Presensi Cepat",
+      "url": "/#scan",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Selfie GPS Biometrik Wajah",
+      "short_name": "Selfie GPS",
+      "description": "Presensi Wajah & Geofencing Lokasi",
+      "url": "/#selfie",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard & Statistik Harian",
+      "short_name": "Dashboard",
+      "description": "Ringkasan Kehadiran & Guru Piket",
+      "url": "/#dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Laporan & Rekapitulasi",
+      "short_name": "Laporan",
+      "description": "Cetak Laporan Bulanan & Dokumen",
+      "url": "/#reports",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

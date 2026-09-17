@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Attendance records
+    match /attendance/{recordId} {
+      allow read: if true;
+      allow create, update: if isValidId(recordId);
+      allow delete: if isSignedIn();
+    }
+
+    // GTK Services & Permissions
+    match /gtk_services/{serviceId} {
+      allow read: if true;
+      allow create, update: if isValidId(serviceId);
+      allow delete: if isSignedIn();
+    }
+
+    // School config
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // App state backups
+    match /backups/{backupId} {
+      allow read: if true;
+      allow write: if isValidId(backupId);
+    }
+
+    // Master data
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isValidId(studentId);
+    }
+
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isValidId(teacherId);
+    }
+  }
+}
