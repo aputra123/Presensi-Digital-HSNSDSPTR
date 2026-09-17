@@ -92,8 +92,10 @@ export const ConfigTab: React.FC<ConfigTabProps> = ({
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [savedBackups, setSavedBackups] = useState<Array<{ id: string; timestamp: string; date: string; recordsCount: number }>>([]);
   const [isManualGpsModalOpen, setIsManualGpsModalOpen] = useState(false);
-  const [isConfirmClearModalOpen, setIsConfirmClearModalOpen] = useState(false);
+  const [clearModalAction, setClearModalAction] = useState<'all' | 'history' | null>(null);
+  const [clearModalStep, setClearModalStep] = useState<1 | 2>(1);
   const [clearConfirmInput, setClearConfirmInput] = useState('');
+  const [clearStep1Acknowledged, setClearStep1Acknowledged] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1129,16 +1131,10 @@ export const ConfigTab: React.FC<ConfigTabProps> = ({
                 type="button"
                 id="clear-history-only-btn"
                 onClick={() => {
-                  if (
-                    window.confirm(
-                      '⚠️ PERINGATAN: Apakah Anda yakin ingin MENGOSONGKAN SELURUH RIWAYAT PRESENSI & LOG?\n\nData guru, siswa, dan rombel akan TETAP ADA, hanya riwayat kehadiran yang akan dibersihkan.'
-                    )
-                  ) {
-                    playBeepSound();
-                    if (onClearHistoryOnly) {
-                      onClearHistoryOnly();
-                    }
-                  }
+                  setClearModalAction('history');
+                  setClearModalStep(1);
+                  setClearConfirmInput('');
+                  setClearStep1Acknowledged(false);
                 }}
                 className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
@@ -1162,8 +1158,10 @@ export const ConfigTab: React.FC<ConfigTabProps> = ({
                 type="button"
                 id="clear-all-data-btn"
                 onClick={() => {
+                  setClearModalAction('all');
+                  setClearModalStep(1);
                   setClearConfirmInput('');
-                  setIsConfirmClearModalOpen(true);
+                  setClearStep1Acknowledged(false);
                 }}
                 className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
@@ -1206,70 +1204,239 @@ export const ConfigTab: React.FC<ConfigTabProps> = ({
         }}
       />
 
-      {/* Modal Dialog Konfirmasi 'Are you sure?' Hapus Semua Data */}
-      {isConfirmClearModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-5">
-            <div className="flex items-center space-x-3 text-rose-600">
-              <div className="p-3 bg-rose-100 rounded-2xl">
-                <AlertTriangle className="w-7 h-7 text-rose-600 shrink-0" />
+      {/* Modal Dialog Multi-Step Konfirmasi 'Type to Confirm' untuk Hapus Data & Kosongkan Riwayat */}
+      {clearModalAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center space-x-3">
+              <div
+                className={`p-3 rounded-2xl ${
+                  clearModalAction === 'all'
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                <AlertTriangle className="w-7 h-7 shrink-0" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900">Are you sure? (Konfirmasi Hapus)</h3>
-                <p className="text-xs text-slate-500">Tindakan ini permanen dan tidak dapat dibatalkan</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-rose-50/70 rounded-2xl border border-rose-100 space-y-2 text-xs text-rose-950 leading-relaxed">
-              <p className="font-bold">Apakah Anda yakin ingin menghapus seluruh data presensi dan data dummy?</p>
-              <p className="text-slate-600 text-[11.5px]">
-                Seluruh data siswa, guru, kelas, log biometrik wajah, rekaman GPS, dan riwayat absensi harian akan dikosongkan secara total untuk memulai data bersih (clean slate).
-              </p>
-              <div className="pt-2 border-t border-rose-200/60">
-                <p className="text-[11px] text-rose-800 font-semibold mb-2">
-                  Ketik kata <span className="font-mono font-black text-rose-900 bg-white px-1.5 py-0.5 rounded border border-rose-300">HAPUS</span> di bawah ini untuk melanjutkan:
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-black text-slate-900">
+                    {clearModalAction === 'all'
+                      ? 'Konfirmasi Hapus Semua Data (Reset Total)'
+                      : 'Konfirmasi Kosongkan Riwayat Presensi'}
+                  </h3>
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      clearModalStep === 1
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    Langkah {clearModalStep} dari 2
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Multi-step verification untuk mencegah penghapusan data secara tidak sengaja
                 </p>
-                <input
-                  type="text"
-                  placeholder="Ketik HAPUS..."
-                  value={clearConfirmInput}
-                  onChange={(e) => setClearConfirmInput(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white border-2 border-rose-300 focus:border-rose-600 rounded-xl text-xs font-mono text-center uppercase tracking-widest focus:outline-none"
-                  autoFocus
-                />
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsConfirmClearModalOpen(false);
-                  setClearConfirmInput('');
-                }}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={clearConfirmInput.trim().toUpperCase() !== 'HAPUS'}
-                onClick={() => {
-                  playBeepSound();
-                  setIsConfirmClearModalOpen(false);
-                  setClearConfirmInput('');
-                  if (onClearAllData) {
-                    onClearAllData();
-                  } else {
-                    onResetToDefault();
-                  }
-                }}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 flex items-center space-x-1.5 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Ya, Hapus Semua Data Sekarang</span>
-              </button>
+            {/* Stepper Visual Bar */}
+            <div className="flex items-center space-x-2">
+              <div
+                className={`flex-1 h-1.5 rounded-full ${
+                  clearModalStep >= 1
+                    ? clearModalAction === 'all'
+                      ? 'bg-rose-500'
+                      : 'bg-amber-500'
+                    : 'bg-slate-200'
+                }`}
+              />
+              <div
+                className={`flex-1 h-1.5 rounded-full ${
+                  clearModalStep === 2
+                    ? clearModalAction === 'all'
+                      ? 'bg-rose-500'
+                      : 'bg-amber-500'
+                    : 'bg-slate-200'
+                }`}
+              />
             </div>
+
+            {/* STEP 1: Impact Assessment & Acknowledgment */}
+            {clearModalStep === 1 && (
+              <div className="space-y-4">
+                <div
+                  className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-2 ${
+                    clearModalAction === 'all'
+                      ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                      : 'bg-amber-50/70 border-amber-200 text-amber-950'
+                  }`}
+                >
+                  <p className="font-bold text-sm">
+                    {clearModalAction === 'all'
+                      ? 'Peringatan Penghapusan Total (Clean Slate):'
+                      : 'Peringatan Pembersihan Riwayat Presensi:'}
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-700 text-[11.5px]">
+                    {clearModalAction === 'all' ? (
+                      <>
+                        <li>Seluruh data <strong>Peserta Didik (Siswa)</strong> akan dihapus.</li>
+                        <li>Seluruh data <strong>Pendidik & Tenaga Kependidikan (Guru GTK)</strong> akan dihapus.</li>
+                        <li>Seluruh rombongan belajar (kelas) akan dikosongkan.</li>
+                        <li>Seluruh log absensi harian, koordinat GPS, foto selfie, dan pendaftaran biometrik wajah akan dihapus total.</li>
+                        <li>Sistem akan di-reset menjadi kosong murni siap input data riil sekolah baru.</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>Seluruh <strong>catatan kehadiran masuk & pulang</strong> akan dihapus.</li>
+                        <li>Seluruh riwayat izin, sakit, dan dispensasi akan dibersihkan.</li>
+                        <li>Log biometrik wajah dan koordinat GPS riwayat akan dikosongkan.</li>
+                        <li className="text-emerald-700 font-bold">
+                          ✓ Data master Siswa, Guru GTK, dan Rombel Kelas TETAP AMAN dan TIDAK dihapus.
+                        </li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+
+                <label className="flex items-start space-x-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={clearStep1Acknowledged}
+                    onChange={(e) => setClearStep1Acknowledged(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-slate-700 leading-snug">
+                    Saya mengerti konsekuensi dari tindakan ini dan bertanggung jawab penuh atas tindakan penghapusan data ini.
+                  </span>
+                </label>
+
+                <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClearModalAction(null);
+                      setClearModalStep(1);
+                      setClearConfirmInput('');
+                      setClearStep1Acknowledged(false);
+                    }}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!clearStep1Acknowledged}
+                    onClick={() => {
+                      setClearModalStep(2);
+                      setClearConfirmInput('');
+                    }}
+                    className={`px-5 py-2.5 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      clearModalAction === 'all'
+                        ? 'bg-rose-600 hover:bg-rose-700'
+                        : 'bg-amber-600 hover:bg-amber-700'
+                    }`}
+                  >
+                    Lanjut ke Konfirmasi Ketik (Langkah 2) →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Safety Input Verification (Type to Confirm) */}
+            {clearModalStep === 2 && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs text-slate-700">
+                  <p className="font-bold text-slate-900">
+                    Konfirmasi Ketik Frasa Pengaman (Type to Confirm):
+                  </p>
+                  <p className="text-[11.5px] leading-relaxed">
+                    Untuk memastikan Anda benar-benar bermaksud melakukan tindakan ini, ketik kata berikut dengan tepat:{' '}
+                    <strong className="font-mono font-black text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-300 text-xs">
+                      {clearModalAction === 'all' ? 'HAPUS' : 'KOSONGKAN'}
+                    </strong>
+                  </p>
+
+                  <div className="pt-2">
+                    <input
+                      type="text"
+                      placeholder={`Ketik ${clearModalAction === 'all' ? 'HAPUS' : 'KOSONGKAN'}...`}
+                      value={clearConfirmInput}
+                      onChange={(e) => setClearConfirmInput(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border-2 border-slate-300 focus:border-rose-600 rounded-xl text-xs font-mono text-center uppercase tracking-widest focus:outline-none transition-colors"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setClearModalStep(1)}
+                    className="px-3.5 py-2 text-slate-600 hover:text-slate-900 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    ← Kembali ke Langkah 1
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClearModalAction(null);
+                        setClearModalStep(1);
+                        setClearConfirmInput('');
+                        setClearStep1Acknowledged(false);
+                      }}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        clearConfirmInput.trim().toUpperCase() !==
+                        (clearModalAction === 'all' ? 'HAPUS' : 'KOSONGKAN')
+                      }
+                      onClick={() => {
+                        playBeepSound();
+                        const actionToExec = clearModalAction;
+                        setClearModalAction(null);
+                        setClearModalStep(1);
+                        setClearConfirmInput('');
+                        setClearStep1Acknowledged(false);
+
+                        if (actionToExec === 'all') {
+                          if (onClearAllData) {
+                            onClearAllData();
+                          } else {
+                            onResetToDefault();
+                          }
+                        } else if (actionToExec === 'history') {
+                          if (onClearHistoryOnly) {
+                            onClearHistoryOnly();
+                          }
+                        }
+                      }}
+                      className={`px-5 py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center space-x-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
+                        clearModalAction === 'all'
+                          ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
+                          : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+                      }`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>
+                        {clearModalAction === 'all'
+                          ? 'Ya, Hapus Semua Data Sekarang'
+                          : 'Ya, Kosongkan Riwayat Presensi Sekarang'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

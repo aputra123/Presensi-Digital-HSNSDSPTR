@@ -303,18 +303,24 @@ export const LeaveRequestsTab: React.FC<LeaveRequestsTabProps> = ({
     return isAdminUser(userRole, currentAccount);
   }, [userRole, currentAccount]);
 
+  const isGuruAcc = useMemo(() => {
+    if (isKepsekUser || isAdminAcc) return false;
+    return userRole === 'guru' || currentAccount?.role === 'guru';
+  }, [userRole, currentAccount, isKepsekUser, isAdminAcc]);
+
+  const isPiketAcc = useMemo(() => {
+    return userRole === 'piket' || currentAccount?.role === 'piket';
+  }, [userRole, currentAccount]);
+
+  // Hak Akses Persetujuan Sesuai Kebijakan:
+  // 1. Izin Guru GTK: HANYA Kepala Sekolah (akun kepsek) dan Admin (akun admin) yang bisa setujui, kembalikan, dan tolak.
+  // 2. Izin Siswa: HANYA Kepala Sekolah (akun kepsek), Guru GTK (akun guru), Piket (akun piket), dan Admin (akun admin) yang bisa setujui, kembalikan, dan tolak.
   const canApprove = (item: LeaveRequest) => {
     if (item.personType === 'teacher') {
-      // Sesuai aturan: Yang setujui, kembalikan, dan tolak izin GTK HANYA kepala sekolah (akun kepsek) dan admin (akun admin)
       return isKepsekUser || isAdminAcc;
     }
-    // Untuk siswa: Admin, Petugas Piket, dan Guru/Wali Kelas
-    if (userRole === 'admin' || userRole === 'piket') return true;
-    if (userRole === 'guru') {
-      return true;
-    }
-    // Siswa cannot approve any leave request
-    return false;
+    // Siswa leave: Kepala Sekolah, Guru GTK, Piket, and Admin
+    return isKepsekUser || isGuruAcc || isPiketAcc || isAdminAcc;
   };
 
   const canEditOrDelete = (item: LeaveRequest) => {
@@ -954,101 +960,117 @@ export const LeaveRequestsTab: React.FC<LeaveRequestsTabProps> = ({
                     <>
                       {canApprove(item) ? (
                         <div className="flex items-center space-x-2">
-                          {item.personType === 'teacher' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const reviewerName = isKepsekUser
-                                  ? config?.principalName || 'Kepala Sekolah'
-                                  : config?.adminName || 'Admin';
-                                const reviewerRole = isKepsekUser ? 'Kepala Sekolah' : 'Administrator';
-                                const reasonInput = window.prompt(
-                                  'Catatan pengembalian berkas / revisi untuk GTK:',
-                                  'Mohon lengkapi dokumen pendukung / perbaiki tanggal izin.'
-                                );
-                                if (reasonInput !== null) {
-                                  onUpdateLeaveStatus(
-                                    item.id,
-                                    'returned',
-                                    reasonInput.trim() || 'Berkas dikembalikan untuk revisi',
-                                    { name: reviewerName, role: reviewerRole }
-                                  );
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
-                              title="Kembalikan izin GTK ke pemohon untuk direvisi/dilengkapi"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                              <span>Kembalikan</span>
-                            </button>
-                          )}
+                          {/* Tombol Kembalikan (Untuk GTK dan Siswa) */}
                           <button
                             type="button"
                             onClick={() => {
-                              const reviewerName =
+                              const reviewerName = isKepsekUser
+                                ? config?.principalName || currentAccount?.name || 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? config?.adminName || currentAccount?.name || 'Admin'
+                                : isPiketAcc
+                                ? currentAccount?.name || 'Petugas Piket'
+                                : currentAccount?.name || 'Guru GTK';
+                              const reviewerRole = isKepsekUser
+                                ? 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? 'Administrator'
+                                : isPiketAcc
+                                ? 'Petugas Piket'
+                                : 'Guru GTK';
+                              const defaultNote =
                                 item.personType === 'teacher'
-                                  ? isKepsekUser
-                                    ? config?.principalName || 'Kepala Sekolah'
-                                    : config?.adminName || 'Admin'
-                                  : userRole === 'piket'
-                                  ? 'Petugas Piket'
-                                  : currentAccount?.name || 'Petugas';
-                              const reviewerRole =
+                                  ? 'Mohon lengkapi dokumen pendukung / perbaiki tanggal izin GTK.'
+                                  : 'Mohon lengkapi surat keterangan / perbaiki tanggal izin siswa.';
+                              const reasonInput = window.prompt(
+                                `Catatan pengembalian berkas / revisi untuk ${item.personType === 'teacher' ? 'GTK' : 'Siswa'}:`,
+                                defaultNote
+                              );
+                              if (reasonInput !== null) {
+                                onUpdateLeaveStatus(
+                                  item.id,
+                                  'returned',
+                                  reasonInput.trim() || 'Berkas dikembalikan untuk revisi',
+                                  { name: reviewerName, role: reviewerRole }
+                                );
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+                            title={`Kembalikan izin ${item.personType === 'teacher' ? 'GTK' : 'Siswa'} ke pemohon untuk direvisi/dilengkapi`}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Kembalikan</span>
+                          </button>
+
+                          {/* Tombol Tolak */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const reviewerName = isKepsekUser
+                                ? config?.principalName || currentAccount?.name || 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? config?.adminName || currentAccount?.name || 'Admin'
+                                : isPiketAcc
+                                ? currentAccount?.name || 'Petugas Piket'
+                                : currentAccount?.name || 'Guru GTK';
+                              const reviewerRole = isKepsekUser
+                                ? 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? 'Administrator'
+                                : isPiketAcc
+                                ? 'Petugas Piket'
+                                : 'Guru GTK';
+                              const defaultRejectReason =
                                 item.personType === 'teacher'
-                                  ? isKepsekUser
-                                    ? 'Kepala Sekolah'
-                                    : 'Administrator'
-                                  : 'Petugas';
-                              const rejectReason =
-                                item.personType === 'teacher'
-                                  ? window.prompt(
-                                      'Alasan penolakan izin GTK:',
-                                      'Tidak memenuhi ketentuan / jadwal bertabrakan dengan agenda dinas.'
-                                    )
-                                  : 'Ditolak oleh Petugas (Dokumen tidak lengkap/tidak sesuai)';
+                                  ? 'Tidak memenuhi ketentuan / jadwal bertabrakan dengan agenda dinas.'
+                                  : 'Ditolak (Dokumen tidak lengkap/alasan tidak dapat diverifikasi).';
+                              const rejectReason = window.prompt(
+                                `Alasan penolakan izin ${item.personType === 'teacher' ? 'GTK' : 'Siswa'}:`,
+                                defaultRejectReason
+                              );
                               if (rejectReason !== null) {
                                 onUpdateLeaveStatus(
                                   item.id,
                                   'rejected',
-                                  item.personType === 'teacher'
-                                    ? `Ditolak oleh ${reviewerRole} (${reviewerName}): ${rejectReason}`
-                                    : rejectReason,
+                                  `Ditolak oleh ${reviewerRole} (${reviewerName}): ${rejectReason}`,
                                   { name: reviewerName, role: reviewerRole }
                                 );
                               }
                             }}
                             className="px-3.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+                            title={`Tolak pengajuan izin ${item.personType === 'teacher' ? 'GTK' : 'Siswa'}`}
                           >
                             <XCircle className="w-3.5 h-3.5" />
                             <span>Tolak</span>
                           </button>
+
+                          {/* Tombol Setujui */}
                           <button
                             type="button"
                             onClick={() => {
-                              const reviewerName =
-                                item.personType === 'teacher'
-                                  ? isKepsekUser
-                                    ? config?.principalName || 'Kepala Sekolah'
-                                    : config?.adminName || 'Admin'
-                                  : userRole === 'piket'
-                                  ? 'Petugas Piket'
-                                  : currentAccount?.name || 'Petugas';
-                              const reviewerRole =
-                                item.personType === 'teacher'
-                                  ? isKepsekUser
-                                    ? 'Kepala Sekolah'
-                                    : 'Administrator'
-                                  : 'Petugas';
+                              const reviewerName = isKepsekUser
+                                ? config?.principalName || currentAccount?.name || 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? config?.adminName || currentAccount?.name || 'Admin'
+                                : isPiketAcc
+                                ? currentAccount?.name || 'Petugas Piket'
+                                : currentAccount?.name || 'Guru GTK';
+                              const reviewerRole = isKepsekUser
+                                ? 'Kepala Sekolah'
+                                : isAdminAcc
+                                ? 'Administrator'
+                                : isPiketAcc
+                                ? 'Petugas Piket'
+                                : 'Guru GTK';
                               onUpdateLeaveStatus(
                                 item.id,
                                 'approved',
-                                item.personType === 'teacher'
-                                  ? `Disetujui oleh ${reviewerRole} (${reviewerName})`
-                                  : `Disetujui oleh Petugas ${config?.schoolName || 'Sekolah'}`,
+                                `Disetujui oleh ${reviewerRole} (${reviewerName})`,
                                 { name: reviewerName, role: reviewerRole }
                               );
                             }}
                             className="px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center space-x-1"
+                            title={`Setujui pengajuan izin ${item.personType === 'teacher' ? 'GTK' : 'Siswa'}`}
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Setujui</span>
@@ -1059,8 +1081,8 @@ export const LeaveRequestsTab: React.FC<LeaveRequestsTabProps> = ({
                           <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span>
                             {item.personType === 'teacher'
-                              ? 'Menunggu keputusan Kepala Sekolah (akun kepsek) / Admin (akun admin)'
-                              : 'Menunggu verifikasi guru piket / wali kelas'}
+                              ? 'Hanya Kepala Sekolah (akun kepsek) & Admin (akun admin) yang berwenang memproses izin GTK'
+                              : 'Hanya Kepala Sekolah, Guru GTK, Piket & Admin yang berwenang memproses izin siswa'}
                           </span>
                         </div>
                       )}

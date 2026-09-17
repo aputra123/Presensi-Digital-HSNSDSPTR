@@ -19,7 +19,7 @@ import { Student, Teacher, SchoolClass, SchoolConfig, UserRole, UserAccount } fr
 import { DigitalIdCard } from './DigitalIdCard';
 import { CardPrintModal } from './CardPrintModal';
 import { getActiveTokenSessionSync, getUserAccountBySessionSync } from '../utils/auth';
-import { exportCardsToPdf } from '../utils/qrCardGenerator';
+import { exportCardsToPdf, CardOrientation } from '../utils/qrCardGenerator';
 
 interface StudentCardsTabProps {
   students?: Student[];
@@ -57,7 +57,12 @@ export const StudentCardsTab: React.FC<StudentCardsTabProps> = ({
   // Print modal state
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [printItems, setPrintItems] = useState<(Student | Teacher)[]>([]);
+  const [printOrientation, setPrintOrientation] = useState<CardOrientation>(initialType === 'teacher' ? 'portrait' : 'landscape');
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
+  useEffect(() => {
+    setPrintOrientation(cardType === 'teacher' ? 'portrait' : 'landscape');
+  }, [cardType]);
 
   const safeStudents = students || [];
   const safeTeachers = teachers || [];
@@ -133,16 +138,18 @@ export const StudentCardsTab: React.FC<StudentCardsTabProps> = ({
   });
 
   // Print all filtered cards
-  const handlePrintAll = () => {
+  const handlePrintAll = (orientation?: CardOrientation) => {
     const items = cardType === 'student' ? filteredStudents : filteredTeachers;
     if (items.length === 0) return;
     setPrintItems(items);
+    setPrintOrientation(orientation || (cardType === 'teacher' ? 'portrait' : 'landscape'));
     setIsPrintModalOpen(true);
   };
 
   // Print single card
-  const handlePrintSingle = (person: Student | Teacher) => {
+  const handlePrintSingle = (person: Student | Teacher, orientation?: CardOrientation) => {
     setPrintItems([person]);
+    setPrintOrientation(orientation || (cardType === 'teacher' ? 'portrait' : 'landscape'));
     setIsPrintModalOpen(true);
   };
 
@@ -152,7 +159,8 @@ export const StudentCardsTab: React.FC<StudentCardsTabProps> = ({
     if (items.length === 0) return;
     try {
       setIsExportingPdf(true);
-      await exportCardsToPdf(items, cardType, config);
+      const targetOrientation = cardType === 'teacher' ? 'portrait' : 'landscape';
+      await exportCardsToPdf(items, cardType, config, undefined, targetOrientation);
     } catch (e) {
       console.error('Failed to export PDF:', e);
       alert('Gagal mengekspor PDF kartu. Silakan coba kembali.');
@@ -295,7 +303,7 @@ export const StudentCardsTab: React.FC<StudentCardsTabProps> = ({
           {/* Print All Button */}
           <button
             type="button"
-            onClick={handlePrintAll}
+            onClick={() => handlePrintAll()}
             disabled={(cardType === 'student' ? filteredStudents : filteredTeachers).length === 0}
             className="px-4 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shadow-xs disabled:opacity-50"
             title="Buka Pratinjau & Cetak Lembar Kartu Format A4"
@@ -403,6 +411,7 @@ export const StudentCardsTab: React.FC<StudentCardsTabProps> = ({
         items={printItems}
         type={cardType}
         config={config}
+        initialOrientation={printOrientation}
       />
     </div>
   );

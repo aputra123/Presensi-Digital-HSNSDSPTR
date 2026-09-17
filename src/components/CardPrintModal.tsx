@@ -11,9 +11,13 @@ import {
   RefreshCw,
   AlertCircle,
   QrCode,
+  Smartphone,
+  CreditCard,
+  ShieldCheck,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { SchoolConfig, Student, Teacher } from '../types';
-import { generateQrDataUrl, exportCardsToPdf } from '../utils/qrCardGenerator';
+import { generateQrDataUrl, exportCardsToPdf, CardOrientation } from '../utils/qrCardGenerator';
 
 interface CardPrintModalProps {
   isOpen: boolean;
@@ -21,6 +25,7 @@ interface CardPrintModalProps {
   items: (Student | Teacher)[];
   type: 'student' | 'teacher';
   config: SchoolConfig;
+  initialOrientation?: CardOrientation;
 }
 
 export const CardPrintModal: React.FC<CardPrintModalProps> = ({
@@ -29,7 +34,10 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
   items,
   type,
   config,
+  initialOrientation,
 }) => {
+  const defaultOrientation: CardOrientation = type === 'teacher' ? 'portrait' : 'landscape';
+  const [orientation, setOrientation] = useState<CardOrientation>(initialOrientation || defaultOrientation);
   const [qrMap, setQrMap] = useState<Record<string, string>>({});
   const [qrStatus, setQrStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [qrError, setQrError] = useState<string | null>(null);
@@ -37,7 +45,82 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<number>(0);
 
+  useEffect(() => {
+    setOrientation(initialOrientation || (type === 'teacher' ? 'portrait' : 'landscape'));
+  }, [initialOrientation, isOpen, type]);
+
   const isStudent = type === 'student';
+
+  // Aligned details using flexbox with consistent gap
+  const renderPrintDetails = (person: Student | Teacher) => {
+    if (isStudent) {
+      const student = person as Student;
+      return (
+        <div className="flex flex-col gap-0.5 mt-1 text-[8.5px] text-left">
+          <div className="flex items-center gap-1.5">
+            <span className="w-16 shrink-0 text-slate-500 font-medium">NISN</span>
+            <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+            <span className="flex-1 font-mono font-bold text-slate-800 truncate">{student.nisn}</span>
+          </div>
+          {student.nik && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-16 shrink-0 text-slate-500 font-medium">NIK</span>
+              <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+              <span className="flex-1 font-mono text-slate-700 truncate">{student.nik}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className="w-16 shrink-0 text-slate-500 font-medium">Kelas</span>
+            <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+            <span className="flex-1 font-semibold text-slate-800 truncate">{student.className || '-'}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-16 shrink-0 text-slate-500 font-medium">T. Ajaran</span>
+            <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+            <span className="flex-1 text-slate-700 truncate">{config.academicYear || '-'}</span>
+          </div>
+        </div>
+      );
+    }
+
+    const teacher = person as Teacher;
+    return (
+      <div className="flex flex-col gap-0.5 mt-1 text-[8.5px] text-left">
+        <div className="flex items-center gap-1.5">
+          <span className="w-24 shrink-0 text-slate-500 font-medium">NIP</span>
+          <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+          <span className="flex-1 font-mono font-bold text-slate-900 truncate">{teacher.nip || '-'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-24 shrink-0 text-slate-500 font-medium">Mata Pelajaran</span>
+          <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+          <span className="flex-1 font-semibold text-slate-800 truncate">{teacher.subject || teacher.role || '-'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-24 shrink-0 text-slate-500 font-medium">Status Kepegawaian</span>
+          <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+          <div className="flex-1">
+            <span
+              className={`inline-block px-1 py-0.2 rounded font-extrabold text-[8px] uppercase leading-none ${
+                teacher.employmentStatus === 'PNS'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : teacher.employmentStatus === 'PPPK'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-purple-100 text-purple-800'
+              }`}
+            >
+              {teacher.employmentStatus || 'GTK'}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-24 shrink-0 text-slate-500 font-medium">Tahun Ajaran</span>
+          <span className="w-1.5 shrink-0 text-slate-400 font-bold text-center">:</span>
+          <span className="flex-1 text-slate-700 truncate">T.A {config.academicYear || '-'}</span>
+        </div>
+      </div>
+    );
+  };
 
   // Pre-generate real QR codes for all items in the print batch with full error handling and progress
   const loadQrs = useCallback(async () => {
@@ -98,9 +181,15 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
     try {
       setIsExportingPdf(true);
       setExportProgress(0);
-      await exportCardsToPdf(items, type, config, (cur, total) => {
-        setExportProgress(Math.round((cur / total) * 100));
-      });
+      await exportCardsToPdf(
+        items,
+        type,
+        config,
+        (cur, total) => {
+          setExportProgress(Math.round((cur / total) * 100));
+        },
+        orientation
+      );
     } catch (e) {
       console.error('Export PDF error:', e);
       alert('Gagal mengekspor PDF kartu. Silakan coba kembali.');
@@ -129,7 +218,7 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Format standar lembar A4 siap laminating atau potong presisi
+                Format standar lembar A4 ({orientation === 'landscape' ? 'Landscape / Mendatar' : 'Potret / Tegak'}) siap cetak presisi
               </p>
             </div>
           </div>
@@ -175,6 +264,53 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
               </div>
             )}
 
+            {/* Dedicated Button to switch between 'Portrait' and 'Landscape' viewing modes dynamically before printing */}
+            <button
+              type="button"
+              id="btn-switch-orientation-mode"
+              onClick={() => setOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'))}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/40 text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shadow-xs active:scale-95"
+              title={`Klik untuk berganti ke mode ${orientation === 'portrait' ? 'Landscape (Mendatar)' : 'Portrait (Tegak)'}`}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 text-amber-300" />
+              <span>Ganti Mode:</span>
+              <span className="px-2 py-0.5 rounded bg-white/20 font-black uppercase text-[10px] tracking-wider text-amber-300">
+                {orientation === 'portrait' ? 'Portrait' : 'Landscape'}
+              </span>
+            </button>
+
+            {/* Orientation Selector Buttons */}
+            <div className="flex items-center bg-white/10 p-0.5 rounded-xl border border-white/20" id="orientation-selector-pills">
+              <button
+                type="button"
+                id="btn-select-portrait"
+                onClick={() => setOrientation('portrait')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                  orientation === 'portrait'
+                    ? 'bg-amber-400 text-slate-950 shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Format Cetak Portrait (Tegak)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Portrait</span>
+              </button>
+              <button
+                type="button"
+                id="btn-select-landscape"
+                onClick={() => setOrientation('landscape')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                  orientation === 'landscape'
+                    ? 'bg-amber-400 text-slate-950 shadow-xs'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Format Cetak Landscape (Mendatar)"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Landscape</span>
+              </button>
+            </div>
+
             {/* Toggle Cut Guides */}
             <button
               type="button"
@@ -198,7 +334,7 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
               title={!isAllQrReady ? 'Menunggu semua QR siap' : 'Unduh berkas PDF siap cetak'}
             >
               <FileDown className="w-3.5 h-3.5" />
-              <span>{isExportingPdf ? `PDF (${exportProgress}%)` : 'Download PDF'}</span>
+              <span>{isExportingPdf ? `PDF (${exportProgress}%)` : `Download PDF (${orientation === 'landscape' ? 'Mendatar' : 'Potret'})`}</span>
             </button>
 
             {/* Print Button */}
@@ -243,12 +379,20 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
               NPSN: {config.npsn} • {config.address || 'Kabupaten Pulau Taliabu, Maluku Utara'}
             </p>
             <p className="text-[11px] font-bold text-slate-800 mt-1 uppercase tracking-wider">
-              LEMBAR CETAK IDENTITAS DIGITAL BER-QR RESMI ({isStudent ? 'PESERTA DIDIK' : 'PEGAWAI / GTK'})
+              LEMBAR CETAK IDENTITAS DIGITAL BER-QR RESMI ({isStudent ? 'PESERTA DIDIK' : 'PEGAWAI / GTK'}) — FORMAT {orientation.toUpperCase()}
             </p>
           </div>
 
-          {/* Cards Grid formatted for A4 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4 print-card-grid">
+          {/* Cards Grid formatted for A4 - Responsive 2x2 grid for portrait to maximize paper usage */}
+          <div
+            id="printable-card-grid"
+            data-orientation={orientation}
+            className={`grid gap-6 print:gap-4 print-card-grid ${
+              orientation === 'portrait'
+                ? 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2 portrait-card-grid'
+                : 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2 landscape-card-grid'
+            }`}
+          >
             {items.map((person) => {
               const student = isStudent ? (person as Student) : null;
               const teacher = !isStudent ? (person as Teacher) : null;
@@ -258,11 +402,8 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
               return (
                 <div
                   key={person.id}
-                  className={`bg-white rounded-2xl overflow-hidden flex flex-col justify-between transition-all id-card-print ${
-                    showCutGuides
-                      ? 'border-2 border-dashed border-slate-300 print:border-slate-400'
-                      : 'border border-slate-200 shadow-sm'
-                  }`}
+                  id={`id-card-print-${person.id}`}
+                  className="bg-white rounded-2xl overflow-hidden flex flex-col justify-between transition-all id-card-print border-2 border-dashed border-slate-300 print:border-slate-400 shadow-sm"
                   style={{
                     pageBreakInside: 'avoid',
                     breakInside: 'avoid',
@@ -300,7 +441,7 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-md font-extrabold text-[8px] z-10 shadow-xs ${
+                      className={`px-2 py-0.5 rounded-md font-extrabold text-[8px] z-10 shadow-xs shrink-0 ${
                         isStudent
                           ? 'bg-amber-400 text-slate-950'
                           : teacher?.employmentStatus === 'PNS'
@@ -312,82 +453,106 @@ export const CardPrintModal: React.FC<CardPrintModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Card Body */}
-                  <div className="p-3.5 flex items-start justify-between gap-3">
-                    {/* Photo + Info */}
-                    <div className="flex items-start space-x-3 min-w-0 flex-1">
-                      <img
-                        src={person.avatar}
-                        alt={person.name}
-                        className="w-16 h-20 rounded-xl object-cover border-2 border-slate-200 shadow-2xs shrink-0 bg-slate-100"
-                      />
+                  {/* Card Body - Dual Orientation Layout */}
+                  {orientation === 'landscape' ? (
+                    /* Landscape Card Layout */
+                    <div className="p-3.5 flex items-start justify-between gap-3 flex-1">
+                      {/* Photo + Info */}
+                      <div className="flex items-start space-x-3 min-w-0 flex-1">
+                        <img
+                          src={person.avatar}
+                          alt={person.name}
+                          className="w-16 h-20 rounded-xl object-cover border-2 border-slate-200 shadow-2xs shrink-0 bg-slate-100"
+                        />
 
-                      <div className="min-w-0 flex-1 space-y-0.5 text-left">
-                        <h4 className="font-extrabold text-slate-900 text-xs leading-snug truncate">
-                          {person.name}
-                        </h4>
-                        <div className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[9px]">
-                          {isStudent ? student?.className : teacher?.role || teacher?.subject}
+                        <div className="min-w-0 flex-1 space-y-0.5 text-left">
+                          <h4 className="font-extrabold text-slate-900 text-xs leading-snug truncate">
+                            {person.name}
+                          </h4>
+                          <div className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[9px]">
+                            {isStudent ? student?.className : teacher?.role || teacher?.subject}
+                          </div>
+
+                          {renderPrintDetails(person)}
                         </div>
+                      </div>
 
-                        <div className="pt-1 text-[9px] text-slate-600 space-y-0.5 font-medium leading-tight">
-                          <div>
-                            <span className="text-slate-400">
-                              {isStudent ? 'NISN: ' : 'NIP: '}
-                            </span>
-                            <span className="font-mono font-bold text-slate-800">
-                              {isStudent ? student?.nisn : teacher?.nip}
-                            </span>
+                      {/* Real QR Code Box */}
+                      <div
+                        data-qr-container="true"
+                        className="bg-slate-50 p-2 rounded-xl border border-slate-200 flex flex-col items-center justify-center shrink-0 w-24 qr-code-container"
+                      >
+                        {qrUrl ? (
+                          <img
+                            src={qrUrl}
+                            alt="QR Presensi"
+                            className="w-16 h-16 object-contain rounded bg-white p-0.5 border border-slate-200 qr-code-image"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-white flex items-center justify-center text-slate-400 rounded border border-slate-200">
+                            <span className="text-[8px]">Loading...</span>
                           </div>
-                          {isStudent && student?.nik && (
-                            <div>
-                              <span className="text-slate-400">NIK: </span>
-                              <span className="font-mono text-slate-700">{student.nik}</span>
-                            </div>
-                          )}
-                          {!isStudent && teacher?.subject && (
-                            <div className="truncate">
-                              <span className="text-slate-400">Bidang: </span>
-                              <span className="text-slate-700">{teacher.subject}</span>
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-slate-400">T.A: </span>
-                            <span className="text-slate-700">{config.academicYear}</span>
+                        )}
+                        <span className="text-[8px] font-mono font-bold text-slate-800 mt-1 block truncate max-w-[85px] text-center">
+                          {qrLabel}
+                        </span>
+                        <span className="text-[7px] text-emerald-600 font-semibold block text-center leading-none mt-0.5">
+                          ✓ Terverifikasi
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Portrait Card Layout */
+                    <div className="p-3.5 flex flex-col items-center space-y-3 flex-1 text-center">
+                      {/* Photo + Identity Information */}
+                      <div className="flex items-center space-x-3 w-full text-left bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <img
+                          src={person.avatar}
+                          alt={person.name}
+                          className="w-14 h-16 rounded-xl object-cover border-2 border-slate-200 shadow-2xs shrink-0 bg-slate-100"
+                        />
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <h4 className="font-extrabold text-slate-900 text-xs leading-snug truncate">
+                            {person.name}
+                          </h4>
+                          <div className="inline-block px-1.5 py-0.5 rounded bg-white text-slate-800 font-bold text-[9px] border border-slate-200">
+                            {isStudent ? student?.className : teacher?.role || teacher?.subject}
                           </div>
+                          {renderPrintDetails(person)}
+                        </div>
+                      </div>
+
+                      {/* Centered Large QR Code */}
+                      <div
+                        data-qr-container="true"
+                        className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center w-full max-w-[200px] qr-code-container shadow-2xs"
+                      >
+                        {qrUrl ? (
+                          <img
+                            src={qrUrl}
+                            alt="QR Presensi"
+                            className="w-28 h-28 object-contain rounded-xl bg-white p-1.5 border border-slate-200 qr-code-image shadow-xs"
+                          />
+                        ) : (
+                          <div className="w-28 h-28 bg-white flex items-center justify-center text-slate-400 rounded-xl border border-slate-200">
+                            <span className="text-[9px]">Loading QR...</span>
+                          </div>
+                        )}
+                        <span className="text-[9px] font-mono font-bold text-slate-800 mt-1.5 block truncate max-w-[180px]">
+                          {qrLabel}
+                        </span>
+                        <div className="flex items-center space-x-1 text-[8px] text-emerald-600 font-bold mt-0.5">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>QR Presensi Valid & Resmi</span>
                         </div>
                       </div>
                     </div>
-
-                    {/* Real QR Code Box */}
-                    <div
-                      data-qr-container="true"
-                      className="bg-slate-50 p-2 rounded-xl border border-slate-200 flex flex-col items-center justify-center shrink-0 w-24 qr-code-container"
-                    >
-                      {qrUrl ? (
-                        <img
-                          src={qrUrl}
-                          alt="QR Presensi"
-                          className="w-16 h-16 object-contain rounded bg-white p-0.5 border border-slate-200 qr-code-image"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-white flex items-center justify-center text-slate-400 rounded border border-slate-200">
-                          <span className="text-[8px]">Loading...</span>
-                        </div>
-                      )}
-                      <span className="text-[8px] font-mono font-bold text-slate-800 mt-1 block truncate max-w-[85px] text-center">
-                        {qrLabel}
-                      </span>
-                      <span className="text-[7px] text-emerald-600 font-semibold block text-center leading-none mt-0.5">
-                        ✓ Terverifikasi
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Card Footer */}
-                  <div className="bg-slate-100/80 px-3 py-1 text-[8px] text-slate-500 flex items-center justify-between border-t border-slate-200">
+                  <div className="bg-slate-100/80 px-3 py-1.5 text-[8px] text-slate-500 flex items-center justify-between border-t border-slate-200">
                     <span className="truncate">NPSN: {config.npsn}</span>
-                    <span className="font-bold text-slate-700">Presensi Digital Resmi</span>
+                    <span className="font-bold text-slate-700">Presensi Digital Resmi • T.A {config.academicYear}</span>
                   </div>
                 </div>
               );
